@@ -7,7 +7,7 @@
 #define FLAG_SETTINGS 0x17
 #define DEBUG false
 
-#define PIN_STATUS_LED 13
+#define PIN_STATUS_LED 13 //LED_BUILTIN //13
 
 WNetwork *network;
 WLedDisplay *display;

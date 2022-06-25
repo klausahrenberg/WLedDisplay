@@ -1,72 +1,73 @@
 #ifndef W_MAX_7219_H
 #define W_MAX_7219_H
 
-#include "WPin.h"
 #include "MaxFont.h"
+#include "WPin.h"
 
-#define DELAY_CLEARING  10
+#define DELAY_CLEARING 10
 #define DELAY_SCROLLING 30
 #define DELAY_OVERSIZE 4444
-#define max7219_reg_noop        0x00
-#define max7219_reg_digit0      0x01
-#define max7219_reg_digit1      0x02
-#define max7219_reg_digit2      0x03
-#define max7219_reg_digit3      0x04
-#define max7219_reg_digit4      0x05
-#define max7219_reg_digit5      0x06
-#define max7219_reg_digit6      0x07
-#define max7219_reg_digit7      0x08
-#define max7219_reg_decodeMode  0x09
-#define max7219_reg_intensity   0x0a
-#define max7219_reg_scanLimit   0x0b
-#define max7219_reg_shutdown    0x0c
+#define max7219_reg_noop 0x00
+#define max7219_reg_digit0 0x01
+#define max7219_reg_digit1 0x02
+#define max7219_reg_digit2 0x03
+#define max7219_reg_digit3 0x04
+#define max7219_reg_digit4 0x05
+#define max7219_reg_digit5 0x06
+#define max7219_reg_digit6 0x07
+#define max7219_reg_digit7 0x08
+#define max7219_reg_decodeMode 0x09
+#define max7219_reg_intensity 0x0a
+#define max7219_reg_scanLimit 0x0b
+#define max7219_reg_shutdown 0x0c
 #define max7219_reg_displayTest 0x0f
 
-class WMax7219: public WPin {
-public:
+class WMax7219 : public WPin {
+ public:
   WMax7219(int dinPin, int csPin, int clkPin, int numSegments)
-    : WPin(dinPin, NO_MODE) {
-  	this->csPin = csPin;
-  	this->clkPin = clkPin;
+      : WPin(dinPin, NO_MODE) {
+    this->csPin = csPin;
+    this->clkPin = clkPin;
     this->numSegments = numSegments;
     this->font = defaultFont;
     this->rotate = true;
+    this->animate = true;
     this->buffer = new byte[numSegments * 8];
     this->reset();
     this->init();
   }
 
   void init() {
-    pinMode(this->getPin(),  OUTPUT);
-	  pinMode(clkPin, OUTPUT);
-	  pinMode(csPin,  OUTPUT);
-	  digitalWrite(clkPin, HIGH);
-	  setCommand(max7219_reg_scanLimit, 0x07);
+    pinMode(this->getPin(), OUTPUT);
+    pinMode(clkPin, OUTPUT);
+    pinMode(csPin, OUTPUT);
+    digitalWrite(clkPin, HIGH);
+    setCommand(max7219_reg_scanLimit, 0x07);
     // using an led matrix (not digits)
-	  setCommand(max7219_reg_decodeMode, 0x00);
+    setCommand(max7219_reg_decodeMode, 0x00);
     // not in shutdown mode
-	  setCommand(max7219_reg_shutdown, 0x01);
+    setCommand(max7219_reg_shutdown, 0x01);
     // no display test
-	  setCommand(max7219_reg_displayTest, 0x00);
-	  // empty registers, turn all LEDs off
-	  clear();
-	  // the first 0x0f is the value you can set
-	  setIntensity(0x0f / 2);
+    setCommand(max7219_reg_displayTest, 0x00);
+    // empty registers, turn all LEDs off
+    clear();
+    // the first 0x0f is the value you can set
+    setIntensity(0x0f / 2);
   }
 
   void clear() {
-	  this->reset();
+    this->reset();
     this->reload();
   }
 
   void setCommand(byte command, byte value) {
     digitalWrite(csPin, LOW);
-	  for (int i = 0; i < numSegments; i++) {
-		  shiftOut(this->getPin(), clkPin, MSBFIRST, command);
-		  shiftOut(this->getPin(), clkPin, MSBFIRST, value);
-	  }
-	  digitalWrite(csPin, LOW);
-	  digitalWrite(csPin, HIGH);
+    for (int i = 0; i < numSegments; i++) {
+      shiftOut(this->getPin(), clkPin, MSBFIRST, command);
+      shiftOut(this->getPin(), clkPin, MSBFIRST, value);
+    }
+    digitalWrite(csPin, LOW);
+    digitalWrite(csPin, HIGH);
   }
 
   void setIntensity(byte intensity) {
@@ -77,7 +78,6 @@ public:
     byte w = sprite[0];
     for (int i = 0; i < w; i++) {
       this->setColumn(i + x, sprite[i + 1]);
-      //buffer[i + x] = sprite[i + 1];
     }
     reload();
     return w;
@@ -99,23 +99,13 @@ public:
     }
   }
 
-  enum WLedState {
-    FITS,
-    OVERSIZE,
-    SCROLL_LEFT,
-    SCROLLED_LEFT,
-    SCROLL_RIGHT
-  };
+  enum WLedState { FITS, OVERSIZE, SCROLL_LEFT, SCROLLED_LEFT, SCROLL_RIGHT };
 
-  void showText(String text) {
-    //mx->clear();
-    bool existsOldText = !this->text.equals("");
-    int oldTextWidth = this->textWidth;
+  void showText(String text) {    
     this->text = utf8ascii(text);
-    this->textWidth = this->getWidth(this -> text);
-    //Fade out old
+    this->textWidth = this->getWidth(this->text);
     int x = max(0, numSegments * 8 / 2 - textWidth / 2);
-    if ((existsOldText) && (oldTextWidth > 0)) {
+    if (animate) {
       for (int y = 8; y > 0; y--) {
         this->scrollUp();
         this->writeString(x, y, this->text);
@@ -123,10 +113,9 @@ public:
         delay(DELAY_CLEARING);
       }
     }
-    //Show new text
-    this->textWidth = this->writeString(x, 0, this->text);
+    this->writeString(x, 0, this->text);
     reload();
-    //Prepare animation
+    // Prepare scrolling
     this->state = (numSegments * 8 >= textWidth ? FITS : OVERSIZE);
     startTime = 0;
   }
@@ -136,7 +125,7 @@ public:
       startTime = now;
     }
     if ((this->state == OVERSIZE) && (now - startTime >= DELAY_OVERSIZE)) {
-      //Start SCROLLING
+      // Start SCROLLING
       this->state = SCROLL_LEFT;
       this->stateCounter = 0;
       startTime = now;
@@ -151,7 +140,7 @@ public:
       }
     }
     if ((this->state == SCROLLED_LEFT) && (now - startTime >= DELAY_OVERSIZE)) {
-      //Start SCROLLING
+      // Start SCROLLING
       this->state = SCROLL_RIGHT;
       this->stateCounter = (numSegments * 8 - this->textWidth);
       startTime = now;
@@ -165,11 +154,10 @@ public:
         this->state = OVERSIZE;
       }
     }
-	}
+  }
 
-protected:
-
-private:
+ protected:
+ private:
   WLedState state;
   int stateCounter;
   unsigned long startTime;
@@ -183,26 +171,28 @@ private:
   byte* buffer;
   byte* font;
   bool rotate;
-
+  bool animate;
 
   int getFontIndex(char c) {
-    int  offset = 0;
+    int offset = 0;
     for (int i = 0; i < c; i++) {
       offset += pgm_read_byte(font + offset);
-      offset++; // skip size byte we used above
+      offset++;  // skip size byte we used above
     }
-    return(offset);
+    return (offset);
   }
 
   byte writeChar(int x, int y, byte c) {
     int fIndex = this->getFontIndex(c);
     byte w = font[fIndex];
-    for (int i = 0; (i < w) && /*((i + x) >= 0) &&*/ ((i + x) < (numSegments * 8)); i++) {
-      byte fValue = font[fIndex + i + 1];
-      if (y != 0) {
-        fValue = getColumn(i + x) | (fValue<<y);
+    for (int i = 0; (i < w) && ((i + x) < (numSegments * 8)); i++) {
+      if ((i + x) >= 0) {
+        byte fValue = font[fIndex + i + 1];
+        if (y != 0) {
+          fValue = getColumn(i + x) | (fValue << y);
+        }
+        this->setColumn(i + x, fValue);
       }
-      this->setColumn(i + x, fValue);
     }
     return w;
   }
@@ -210,7 +200,7 @@ private:
   int writeString(int x, int y, String s) {
     if (y == 0) this->clearBuffer();
     for (int i = 0; (i < s.length()) /*&& (x < numSegments * 8)*/; i++) {
-      //Add Space between characters
+      // Add Space between characters
       x += (i > 0);
       x += writeChar(x, y, s.charAt(i));
     }
@@ -227,13 +217,13 @@ private:
   }
 
   void clearBuffer() {
-	  for (int i = 0; i < (numSegments * 8); i++) {
-		  buffer[i] = 0;
+    for (int i = 0; i < (numSegments * 8); i++) {
+      buffer[i] = 0;
     }
   }
 
   void reset() {
-	  this->clearBuffer();
+    this->clearBuffer();
     this->text = "";
     this->textWidth = 0;
     this->state = FITS;
@@ -243,16 +233,16 @@ private:
 
   void reload() {
     for (int i = 0; i < 8; i++) {
-		  int col = i;
-		  digitalWrite(csPin, LOW);
-		  for (int j = 0; j < numSegments; j++) {
-			  shiftOut(this->getPin(), clkPin, MSBFIRST, i + 1);
-			  shiftOut(this->getPin(), clkPin, MSBFIRST, buffer[col]);
-			  col += 8;
-		  }
-		  digitalWrite(csPin, LOW);
-		  digitalWrite(csPin, HIGH);
-	  }
+      int col = i;
+      digitalWrite(csPin, LOW);
+      for (int j = 0; j < numSegments; j++) {
+        shiftOut(this->getPin(), clkPin, MSBFIRST, i + 1);
+        shiftOut(this->getPin(), clkPin, MSBFIRST, buffer[col]);
+        col += 8;
+      }
+      digitalWrite(csPin, LOW);
+      digitalWrite(csPin, HIGH);
+    }
   }
 
   void setColumn(int x, byte value) {
@@ -294,25 +284,30 @@ private:
 
   byte utf8ascii(byte ascii) {
     if (ascii < 128) {
-			// Standard ASCII-set 0..0x7F handling
-			c1 = 0;
+      // Standard ASCII-set 0..0x7F handling
+      c1 = 0;
       return ascii;
     }
     // get previous input
-    byte last = c1;   // get last char
-    c1 = ascii;         // remember actual character
+    byte last = c1;  // get last char
+    c1 = ascii;      // remember actual character
     switch (last) {
-			// conversion depending on first UTF8-character
-			case 0xC2: return  ascii;  break;
-      case 0xC3: return  (ascii | 0xC0);  break;
-      case 0x82: if (ascii == 0xAC) return 0x80; // special case Euro-symbol
+      // conversion depending on first UTF8-character
+      case 0xC2:
+        return ascii;
+        break;
+      case 0xC3:
+        return (ascii | 0xC0);
+        break;
+      case 0x82:
+        if (ascii == 0xAC) return 0x80;  // special case Euro-symbol
     }
-    return 0;// otherwise: return zero, if character has to be ignored
-	}
+    return 0;  // otherwise: return zero, if character has to be ignored
+  }
 
-	String utf8ascii(String s) {
+  String utf8ascii(String s) {
     String result = "";
-		c1 = 0;
+    c1 = 0;
     char c;
     for (int i = 0; i < s.length(); i++) {
       c = utf8ascii(s.charAt(i));
@@ -321,8 +316,7 @@ private:
       }
     }
     return result;
-	}
-
+  }
 };
 
 #endif
