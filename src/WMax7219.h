@@ -101,7 +101,7 @@ class WMax7219 : public WPin {
 
   enum WLedState { FITS, OVERSIZE, SCROLL_LEFT, SCROLLED_LEFT, SCROLL_RIGHT };
 
-  void showText(String text) {    
+  void showText(String text) {
     this->text = utf8ascii(text);
     this->textWidth = this->getWidth(this->text);
     int x = max(0, numSegments * 8 / 2 - textWidth / 2);
