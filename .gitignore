@@ -3,6 +3,7 @@
 .clang_complete
 .gcc-flags.json
 .travis.yml
+.gitignore
 include
 test
 lib
